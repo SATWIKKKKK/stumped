@@ -1,206 +1,188 @@
 // Types for the Stumped cricket platform
+// Shaped from CricketData.org API responses
 
-export type MatchFormat = "TEST" | "ODI" | "T20I" | "T20" | "LIST_A" | "FC";
-export type MatchStatus = "UPCOMING" | "LIVE" | "COMPLETED" | "ABANDONED";
-export type PlayerRole = "BATSMAN" | "BOWLER" | "ALL_ROUNDER" | "WICKET_KEEPER";
-export type InningsStatus = "IN_PROGRESS" | "ALL_OUT" | "DECLARED" | "COMPLETED";
-export type DismissalType = "BOWLED" | "CAUGHT" | "LBW" | "RUN_OUT" | "STUMPED" | "HIT_WICKET" | "RETIRED" | "NOT_OUT";
-
-export interface Team {
-    id: string;
-    name: string;
-    shortName: string;
-    logo: string;
-    color: string;
-    ranking?: number;
+// ─── API Response Types ─────────────────────────────────────────
+export interface ApiResponse<T = unknown> {
+  status: string
+  info: {
+    hitsToday: number
+    hitsUsed: number
+    hitsLimit: number
+    credits: number
+    server: number
+    queryTime: number
+  }
+  data: T
 }
 
-export interface Player {
-    id: string;
-    name: string;
-    shortName: string;
-    country: string;
-    teamId: string;
-    role: PlayerRole;
-    battingStyle: string;
-    bowlingStyle: string;
-    dateOfBirth: string;
-    image?: string;
+// ─── Match Types (from currentMatches endpoint) ─────────────────
+export interface CricketMatch {
+  id: string
+  name: string
+  status: string
+  venue: string
+  date: string
+  dateTimeGMT: string
+  matchType: string
+  teams: string[]
+  teamInfo?: TeamInfo[]
+  score?: MatchScore[]
+  series_id: string
+  fantasyEnabled: boolean
+  bbbEnabled: boolean
+  hasSquad: boolean
+  matchStarted: boolean
+  matchEnded: boolean
 }
 
-export interface PlayerStats {
-    playerId: string;
-    format: MatchFormat;
-    matches: number;
-    innings: number;
-    runs: number;
-    ballsFaced: number;
-    hundreds: number;
-    fifties: number;
-    highestScore: string;
-    average: number;
-    strikeRate: number;
-    wickets: number;
-    ballsBowled: number;
-    runsConceded: number;
-    bestBowling: string;
-    bowlingAverage: number;
-    economyRate: number;
-    catches: number;
-    stumpings: number;
+export interface TeamInfo {
+  name: string
+  shortname: string
+  img: string
 }
 
-export interface Match {
-    id: string;
-    seriesName: string;
-    matchNumber: string;
-    format: MatchFormat;
-    status: MatchStatus;
-    venue: string;
-    city: string;
-    startDate: string;
-    team1: Team;
-    team2: Team;
-    toss?: {
-        winner: string;
-        decision: string;
-    };
-    result?: string;
-    innings: Innings[];
-    currentInnings?: number;
+export interface MatchScore {
+  r: number  // runs
+  w: number  // wickets
+  o: number  // overs
+  inning: string
 }
 
-export interface Innings {
-    inningsNumber: number;
-    battingTeamId: string;
-    battingTeam: string;
-    runs: number;
-    wickets: number;
-    overs: number;
-    balls: number;
-    extras: number;
-    runRate: number;
-    status: InningsStatus;
-    batsmen: BatsmanScore[];
-    bowlers: BowlerFigures[];
-    fallOfWickets: FallOfWicket[];
-    overHistory: OverSummary[];
+// ─── Match Scorecard Types ──────────────────────────────────────
+export interface ScorecardData {
+  id: string
+  name: string
+  status: string
+  venue: string
+  teams: string[]
+  scorecard: ScorecardInnings[]
 }
 
-export interface BatsmanScore {
-    playerId: string;
-    name: string;
-    runs: number;
-    balls: number;
-    fours: number;
-    sixes: number;
-    strikeRate: number;
-    dismissal: string;
-    isOnStrike?: boolean;
-    isNotOut?: boolean;
+export interface ScorecardInnings {
+  inning: string
+  batting: BatsmanEntry[]
+  bowling: BowlerEntry[]
+  totals: {
+    R: number
+    W: number
+    O: number
+    RR: string
+  }
 }
 
-export interface BowlerFigures {
-    playerId: string;
-    name: string;
-    overs: number;
-    maidens: number;
-    runs: number;
-    wickets: number;
-    economy: number;
-    dots: number;
-    wides: number;
-    noBalls: number;
+export interface BatsmanEntry {
+  batsman: string
+  dismissal: string
+  r: number
+  b: number
+  "4s": number
+  "6s": number
+  sr: string
 }
 
-export interface FallOfWicket {
-    wicketNumber: number;
-    runs: number;
-    overs: number;
-    playerName: string;
+export interface BowlerEntry {
+  bowler: string
+  o: number
+  m: number
+  r: number
+  w: number
+  eco: string
 }
 
-export interface OverSummary {
-    overNumber: number;
-    bowler: string;
-    runs: number;
-    wickets: number;
-    deliveries: string[];
+// ─── Player Types ───────────────────────────────────────────────
+export interface CricketPlayer {
+  id: string
+  name: string
+  country: string
+  role?: string
+  battingStyle?: string
+  bowlingStyle?: string
+  dateOfBirth?: string
+  placeOfBirth?: string
+  playerImg?: string
+  stats?: PlayerStatsByType[]
 }
 
-export interface CommentaryBall {
-    overNumber: number;
-    ballNumber: number;
-    bowler: string;
-    batsman: string;
-    runs: number;
-    extras: number;
-    extraType?: string;
-    isWicket: boolean;
-    wicketType?: string;
-    dismissedBatsman?: string;
-    commentary: string;
-    timestamp: string;
+export interface PlayerStatsByType {
+  fn: string   // format name e.g. "test", "odi", "t20i"
+  matchtype: string
+  stat: {
+    m?: string   // matches
+    inn?: string // innings
+    no?: string  // not outs
+    runs?: string
+    hs?: string  // highest score
+    avg?: string
+    bf?: string  // balls faced
+    sr?: string  // strike rate
+    "100s"?: string
+    "200s"?: string
+    "50s"?: string
+    "4s"?: string
+    "6s"?: string
+    ct?: string  // catches
+    st?: string  // stumpings
+    wkts?: string  // wickets
+    bbi?: string   // best bowling innings
+    bbm?: string   // best bowling match
+    econ?: string  // economy
+    "5w"?: string  // 5 wicket hauls
+    "10w"?: string
+  }
 }
 
-export interface Series {
-    id: string;
-    name: string;
-    format: MatchFormat;
-    startDate: string;
-    endDate: string;
-    teams: Team[];
-    matches: Match[];
+// ─── Rankings Types ─────────────────────────────────────────────
+export interface RankingEntry {
+  rank: string
+  name: string
+  country: string
+  rating: string
+  points: string
 }
 
-export interface Ranking {
-    rank: number;
-    team?: Team;
-    player?: Player;
-    rating: number;
-    previousRank: number;
-    format: MatchFormat;
-    category: "batting" | "bowling" | "allrounder" | "team";
+// ─── Series Types ───────────────────────────────────────────────
+export interface CricketSeries {
+  id: string
+  name: string
+  startDate: string
+  endDate: string
+  odi: number
+  t20: number
+  test: number
+  squads: number
+  matches: number
 }
 
-export interface PredictionData {
-    team1Probability: number;
-    team2Probability: number;
-    drawProbability: number;
-    predictedScore?: string;
-    keyFactors: string[];
-    momentum: number[];
+// ─── Ball by Ball Types ─────────────────────────────────────────
+export interface BallByBallEntry {
+  id: number
+  batsmanStriker: {
+    name: string
+    niceName: string
+    runs: number
+    ballsFaced: number
+  }
+  batsmanNonStriker: {
+    name: string
+    niceName: string
+  }
+  bowler: {
+    name: string
+    niceName: string
+    overs: number
+    wickets: number
+    runsConceded: number
+  }
+  over: number
+  ball: number
+  score: number
+  extras: number
+  isWicket: boolean
+  commentary: string
 }
 
-export interface FantasyPlayer extends Player {
-    credits: number;
-    points: number;
-    selectedBy: number;
-    isCaptain?: boolean;
-    isViceCaptain?: boolean;
-}
+// ─── UI Helper Types ────────────────────────────────────────────
+export type MatchFormat = "TEST" | "ODI" | "T20I" | "T20" | "LIST_A" | "FC"
+export type MatchStatus = "UPCOMING" | "LIVE" | "COMPLETED" | "ABANDONED"
+export type PlayerRole = "BATSMAN" | "BOWLER" | "ALL_ROUNDER" | "WICKET_KEEPER"
 
-export interface CommunityPost {
-    id: string;
-    userId: string;
-    userName: string;
-    userAvatar?: string;
-    content: string;
-    matchId?: string;
-    playerId?: string;
-    likes: number;
-    comments: number;
-    createdAt: string;
-    isVerified?: boolean;
-}
-
-export interface Notification {
-    id: string;
-    type: "WICKET" | "MILESTONE" | "MATCH_START" | "MATCH_END" | "TOSS" | "ALERT";
-    title: string;
-    body: string;
-    matchId?: string;
-    playerId?: string;
-    read: boolean;
-    createdAt: string;
-}

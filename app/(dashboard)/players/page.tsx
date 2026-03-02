@@ -1,107 +1,111 @@
-"use client";
+﻿export const dynamic = "force-dynamic"
 
-import { useState } from "react";
-import Link from "next/link";
-import { motion } from "framer-motion";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Search, Filter, Users } from "lucide-react";
-import { players } from "@/lib/data";
+import { Suspense } from "react"
+import Link from "next/link"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Cricket } from "@/lib/cached-cricket"
+import { EmptyState } from "@/components/common/EmptyState"
+import type { CricketPlayer } from "@/types/cricket"
 
-const roleColors: Record<string, string> = {
-    BATSMAN: "bg-cricket-amber/15 text-cricket-amber",
-    BOWLER: "bg-cricket-lime/15 text-cricket-lime",
-    ALL_ROUNDER: "bg-blue-500/15 text-blue-400",
-    WICKET_KEEPER: "bg-purple-500/15 text-purple-400",
-};
+async function PlayerResults({ query }: { query: string }) {
+  const res = await Cricket.searchPlayers(query)
+  const players: CricketPlayer[] = res?.data ?? []
 
-export default function PlayersPage() {
-    const [search, setSearch] = useState("");
-    const [roleFilter, setRoleFilter] = useState<string>("ALL");
+  if (players.length === 0) {
+    return <EmptyState icon="search" title="No players found" description={`No results for "${query}". Try a different name.`} />
+  }
 
-    const filtered = players.filter((p) => {
-        const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
-            p.country.toLowerCase().includes(search.toLowerCase());
-        const matchesRole = roleFilter === "ALL" || p.role === roleFilter;
-        return matchesSearch && matchesRole;
-    });
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {players.map((player) => (
+        <Link key={player.id} href={`/players/${player.id}`}>
+          <Card className="hover:border-foreground/20 transition-all cursor-pointer group h-full">
+            <CardContent className="p-5">
+              <div className="flex items-start gap-4">
+                {player.playerImg ? (
+                  <img src={player.playerImg} alt={player.name} className="h-14 w-14 rounded-xl object-cover shrink-0" />
+                ) : (
+                  <div className="h-14 w-14 rounded-xl bg-foreground/10 flex items-center justify-center text-lg font-bold shrink-0">
+                    {player.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold truncate group-hover:underline">{player.name}</h3>
+                  <p className="text-sm text-muted-foreground">{player.country}</p>
+                  {player.role && (
+                    <Badge variant="outline" className="text-[10px] mt-1">
+                      {player.role}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+      ))}
+    </div>
+  )
+}
 
-    return (
-        <div className="p-6 space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-                    <Users className="h-6 w-6 text-cricket-amber" /> Players
-                </h1>
-                <p className="text-muted-foreground">Browse and search international cricket players</p>
+function ResultsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <Card key={i}>
+          <CardContent className="p-5">
+            <div className="flex items-start gap-4">
+              <Skeleton className="h-14 w-14 rounded-xl" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+                <Skeleton className="h-5 w-16" />
+              </div>
             </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
+}
 
-            {/* Filters */}
-            <div className="flex flex-wrap gap-3">
-                <div className="relative flex-1 min-w-[240px] max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Search by name or country..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="pl-9"
-                    />
-                </div>
-                <div className="flex gap-1.5">
-                    {["ALL", "BATSMAN", "BOWLER", "ALL_ROUNDER", "WICKET_KEEPER"].map((role) => (
-                        <Button
-                            key={role}
-                            variant={roleFilter === role ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setRoleFilter(role)}
-                            className="text-xs"
-                        >
-                            {role === "ALL" ? "All" : role.replace("_", " ")}
-                        </Button>
-                    ))}
-                </div>
-            </div>
+export default async function PlayersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>
+}) {
+  const { q } = await searchParams
 
-            {/* Player Grid */}
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-            >
-                {filtered.map((player) => (
-                    <Link key={player.id} href={`/players/${player.id}`}>
-                        <Card className="hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer group overflow-hidden h-full">
-                            <CardContent className="p-5">
-                                <div className="flex items-start gap-4">
-                                    <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-lg font-bold text-primary group-hover:scale-105 transition-transform shrink-0">
-                                        {player.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                        <h3 className="font-semibold truncate group-hover:text-primary transition-colors">{player.name}</h3>
-                                        <p className="text-sm text-muted-foreground">{player.country}</p>
-                                        <div className="flex flex-wrap gap-1.5 mt-2">
-                                            <Badge className={`text-[10px] ${roleColors[player.role] || ""}`}>
-                                                {player.role.replace("_", " ")}
-                                            </Badge>
-                                        </div>
-                                        <div className="mt-2 space-y-0.5">
-                                            <p className="text-xs text-muted-foreground">{player.battingStyle}</p>
-                                            <p className="text-xs text-muted-foreground">{player.bowlingStyle}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </Link>
-                ))}
-            </motion.div>
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Players</h1>
+        <p className="text-muted-foreground">Search international cricket players</p>
+      </div>
 
-            {filtered.length === 0 && (
-                <div className="text-center py-12">
-                    <p className="text-muted-foreground">No players found matching your criteria</p>
-                </div>
-            )}
+      <form className="max-w-md">
+        <div className="relative">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            name="q"
+            type="text"
+            defaultValue={q ?? ""}
+            placeholder="Search by player name..."
+            className="w-full pl-9 pr-4 py-2 rounded-lg border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20"
+          />
         </div>
-    );
+      </form>
+
+      {q ? (
+        <Suspense fallback={<ResultsSkeleton />}>
+          <PlayerResults query={q} />
+        </Suspense>
+      ) : (
+        <EmptyState icon="search" title="Search for players" description="Enter a player name above to search the CricketData database." />
+      )}
+    </div>
+  )
 }

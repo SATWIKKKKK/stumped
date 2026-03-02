@@ -1,148 +1,124 @@
-"use client";
+﻿export const dynamic = "force-dynamic"
 
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Trophy, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
-import { getRankingsByFormatAndCategory } from "@/lib/data";
-import Link from "next/link";
+import { Suspense } from "react"
+import Link from "next/link"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Cricket } from "@/lib/cached-cricket"
+import { EmptyState } from "@/components/common/EmptyState"
+import type { RankingEntry } from "@/types/cricket"
 
-export default function RankingsPage() {
-    const [format, setFormat] = useState("TEST");
+const FORMATS = ["test", "odi", "t20"] as const
+const TYPES = ["batsmen", "bowlers", "allrounders"] as const
 
-    const battingRankings = getRankingsByFormatAndCategory(format, "batting");
-    const bowlingRankings = getRankingsByFormatAndCategory(format, "bowling");
-    const teamRankings = getRankingsByFormatAndCategory(format, "team");
+async function RankingsList({
+  format,
+  type,
+}: {
+  format: (typeof FORMATS)[number]
+  type: (typeof TYPES)[number]
+}) {
+  const res = await Cricket.getRankings(type, format)
+  const entries: RankingEntry[] = res?.data ?? []
 
-    const RankingChange = ({ current, previous }: { current: number; previous: number }) => {
-        if (current < previous) return <span className="text-win flex items-center gap-0.5 text-xs"><ArrowUpRight className="h-3 w-3" />{previous - current}</span>;
-        if (current > previous) return <span className="text-loss flex items-center gap-0.5 text-xs"><ArrowDownRight className="h-3 w-3" />{current - previous}</span>;
-        return <span className="text-muted-foreground text-xs"><Minus className="h-3 w-3" /></span>;
-    };
+  if (entries.length === 0) {
+    return <EmptyState icon="trophy" title="No rankings data" description="Rankings data is currently unavailable." />
+  }
 
-    return (
-        <div className="p-6 space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-                    <Trophy className="h-6 w-6 text-cricket-amber" /> ICC Rankings
-                </h1>
-                <p className="text-muted-foreground">Official ICC cricket rankings across all formats</p>
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base capitalize">{format.toUpperCase()} {type}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-1">
+          {entries.slice(0, 20).map((entry) => (
+            <div key={entry.rank} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-accent transition-colors">
+              <span className={`text-lg font-bold w-8 text-center tabular-nums ${Number(entry.rank) <= 3 ? "text-foreground" : "text-muted-foreground"}`}>
+                {entry.rank}
+              </span>
+              <div className="h-9 w-9 rounded-full bg-foreground/10 flex items-center justify-center text-xs font-bold">
+                {entry.name?.charAt(0) ?? "?"}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{entry.name}</p>
+                <p className="text-xs text-muted-foreground">{entry.country}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-bold tabular-nums">{entry.rating}</p>
+              </div>
             </div>
-
-            <Tabs value={format} onValueChange={setFormat}>
-                <TabsList className="grid w-full max-w-xs grid-cols-3">
-                    <TabsTrigger value="TEST">Test</TabsTrigger>
-                    <TabsTrigger value="ODI">ODI</TabsTrigger>
-                    <TabsTrigger value="T20I">T20I</TabsTrigger>
-                </TabsList>
-            </Tabs>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Batting Rankings */}
-                <Card>
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-base text-cricket-amber">Batting Rankings</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-2">
-                            {battingRankings.map((r) => (
-                                <Link key={r.rank} href={r.player ? `/players/${r.player.id}` : "#"}>
-                                    <div className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-accent transition-colors">
-                                        <span className={`text-lg font-bold w-8 text-center ${r.rank <= 3 ? "text-cricket-amber" : "text-muted-foreground"}`}>
-                                            {r.rank}
-                                        </span>
-                                        <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
-                                            {r.player?.shortName?.charAt(0)}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium truncate">{r.player?.name}</p>
-                                            <p className="text-xs text-muted-foreground">{r.player?.country}</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-sm font-bold">{r.rating}</p>
-                                            <RankingChange current={r.rank} previous={r.previousRank} />
-                                        </div>
-                                    </div>
-                                </Link>
-                            ))}
-                            {battingRankings.length === 0 && (
-                                <p className="text-sm text-muted-foreground text-center py-4">No data available</p>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Bowling Rankings */}
-                <Card>
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-base text-cricket-lime">Bowling Rankings</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-2">
-                            {bowlingRankings.map((r) => (
-                                <Link key={r.rank} href={r.player ? `/players/${r.player.id}` : "#"}>
-                                    <div className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-accent transition-colors">
-                                        <span className={`text-lg font-bold w-8 text-center ${r.rank <= 3 ? "text-cricket-lime" : "text-muted-foreground"}`}>
-                                            {r.rank}
-                                        </span>
-                                        <div className="h-9 w-9 rounded-full bg-cricket-green/20 flex items-center justify-center text-xs font-bold text-cricket-lime">
-                                            {r.player?.shortName?.charAt(0)}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium truncate">{r.player?.name}</p>
-                                            <p className="text-xs text-muted-foreground">{r.player?.country}</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-sm font-bold">{r.rating}</p>
-                                            <RankingChange current={r.rank} previous={r.previousRank} />
-                                        </div>
-                                    </div>
-                                </Link>
-                            ))}
-                            {bowlingRankings.length === 0 && (
-                                <p className="text-sm text-muted-foreground text-center py-4">No data available</p>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Team Rankings */}
-                <Card>
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-base">Team Rankings</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-2">
-                            {teamRankings.map((r) => (
-                                <Link key={r.rank} href={r.team ? `/teams/${r.team.id}` : "#"}>
-                                    <div className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-accent transition-colors">
-                                        <span className={`text-lg font-bold w-8 text-center ${r.rank <= 3 ? "text-cricket-amber" : "text-muted-foreground"}`}>
-                                            {r.rank}
-                                        </span>
-                                        <div
-                                            className="h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold"
-                                            style={{ backgroundColor: (r.team?.color || "#333") + "20", color: r.team?.color }}
-                                        >
-                                            {r.team?.shortName}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium truncate">{r.team?.name}</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-sm font-bold">{r.rating}</p>
-                                            <RankingChange current={r.rank} previous={r.previousRank} />
-                                        </div>
-                                    </div>
-                                </Link>
-                            ))}
-                            {teamRankings.length === 0 && (
-                                <p className="text-sm text-muted-foreground text-center py-4">No data available</p>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+          ))}
         </div>
-    );
+      </CardContent>
+    </Card>
+  )
+}
+
+function RankingSkeleton() {
+  return (
+    <Card>
+      <CardHeader className="pb-3"><Skeleton className="h-5 w-32" /></CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 p-2.5">
+              <Skeleton className="h-6 w-6" />
+              <Skeleton className="h-9 w-9 rounded-full" />
+              <div className="flex-1 space-y-1"><Skeleton className="h-4 w-28" /><Skeleton className="h-3 w-16" /></div>
+              <Skeleton className="h-4 w-12" />
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+export default async function RankingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ format?: string; type?: string }>
+}) {
+  const sp = await searchParams
+  const format = FORMATS.includes(sp.format as (typeof FORMATS)[number]) ? (sp.format as (typeof FORMATS)[number]) : "test"
+  const type = TYPES.includes(sp.type as (typeof TYPES)[number]) ? (sp.type as (typeof TYPES)[number]) : "batsmen"
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">ICC Rankings</h1>
+        <p className="text-muted-foreground">Official ICC cricket rankings across all formats</p>
+      </div>
+
+      <div className="flex flex-wrap gap-4">
+        <div className="flex gap-1 rounded-lg border p-1">
+          {FORMATS.map((f) => (
+            <Link
+              key={f}
+              href={`/rankings?format=${f}&type=${type}`}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${f === format ? "bg-foreground text-background" : "hover:bg-accent"}`}
+            >
+              {f.toUpperCase()}
+            </Link>
+          ))}
+        </div>
+        <div className="flex gap-1 rounded-lg border p-1">
+          {TYPES.map((t) => (
+            <Link
+              key={t}
+              href={`/rankings?format=${format}&type=${t}`}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium capitalize transition-colors ${t === type ? "bg-foreground text-background" : "hover:bg-accent"}`}
+            >
+              {t}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <Suspense key={`${format}-${type}`} fallback={<RankingSkeleton />}>
+        <RankingsList format={format} type={type} />
+      </Suspense>
+    </div>
+  )
 }

@@ -1,205 +1,170 @@
-"use client";
+﻿export const dynamic = "force-dynamic"
 
-import { use } from "react";
-import { notFound } from "next/navigation";
-import Link from "next/link";
-import { motion } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, Calendar, Award, TrendingUp, Target, Star, Zap } from "lucide-react";
-import { getPlayerById, getPlayerStatsByPlayerId } from "@/lib/data";
+import { Suspense } from "react"
+import Link from "next/link"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Cricket } from "@/lib/cached-cricket"
+import { EmptyState } from "@/components/common/EmptyState"
+import type { CricketPlayer, PlayerStatsByType } from "@/types/cricket"
 
-export default function PlayerDetailPage({ params }: { params: Promise<{ playerId: string }> }) {
-    const { playerId } = use(params);
-    const player = getPlayerById(playerId);
-    if (!player) return notFound();
+async function PlayerDetail({ playerId }: { playerId: string }) {
+  const res = await Cricket.getPlayer(playerId)
+  const player: CricketPlayer | null = res?.data ?? null
 
-    const stats = getPlayerStatsByPlayerId(playerId);
-    const formats = [...new Set(stats.map(s => s.format))];
+  if (!player) {
+    return <EmptyState icon="cricket" title="Player not found" description="This player could not be loaded from CricketData." />
+  }
 
-    return (
-        <div className="p-6 space-y-6">
-            {/* Back */}
-            <Button variant="ghost" size="sm" asChild>
-                <Link href="/players"><ArrowLeft className="h-4 w-4 mr-1" /> Back to Players</Link>
-            </Button>
+  const formats = player.stats?.filter((s: PlayerStatsByType) => s.fn) ?? []
 
-            {/* Player Hero */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-            >
-                <Card className="overflow-hidden">
-                    <div className="h-2 bg-gradient-to-r from-cricket-amber via-cricket-gold to-cricket-lime" />
-                    <CardContent className="p-8">
-                        <div className="flex flex-col md:flex-row items-start gap-6">
-                            <div className="h-24 w-24 rounded-2xl bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center text-3xl font-bold text-primary shrink-0">
-                                {player.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
-                            </div>
-                            <div className="flex-1">
-                                <h1 className="text-3xl font-bold">{player.name}</h1>
-                                <p className="text-lg text-muted-foreground">{player.country}</p>
-                                <div className="flex flex-wrap gap-2 mt-3">
-                                    <Badge variant="default">{player.role.replace("_", " ")}</Badge>
-                                    <Badge variant="outline">{player.battingStyle}</Badge>
-                                    <Badge variant="outline">{player.bowlingStyle}</Badge>
-                                </div>
-                                <div className="flex items-center gap-4 mt-4 text-sm text-muted-foreground">
-                                    <span className="flex items-center gap-1">
-                                        <Calendar className="h-3.5 w-3.5" />
-                                        Born: {new Date(player.dateOfBirth).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-                                    </span>
-                                </div>
-                            </div>
-                            {/* Quick Stats for main format */}
-                            {stats.length > 0 && (
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="text-center p-3 rounded-xl bg-muted/50">
-                                        <p className="text-2xl font-bold text-primary">{stats[0].matches}</p>
-                                        <p className="text-xs text-muted-foreground">Matches</p>
-                                    </div>
-                                    <div className="text-center p-3 rounded-xl bg-muted/50">
-                                        <p className="text-2xl font-bold">{stats[0].runs}</p>
-                                        <p className="text-xs text-muted-foreground">Runs</p>
-                                    </div>
-                                    <div className="text-center p-3 rounded-xl bg-muted/50">
-                                        <p className="text-2xl font-bold">{stats[0].wickets}</p>
-                                        <p className="text-xs text-muted-foreground">Wickets</p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
-            </motion.div>
-
-            {/* Stats by Format */}
-            {stats.length > 0 ? (
-                <Tabs defaultValue={formats[0]} className="space-y-4">
-                    <TabsList>
-                        {formats.map((fmt) => (
-                            <TabsTrigger key={fmt} value={fmt}>{fmt}</TabsTrigger>
-                        ))}
-                    </TabsList>
-
-                    {formats.map((fmt) => {
-                        const s = stats.find(st => st.format === fmt)!;
-                        return (
-                            <TabsContent key={fmt} value={fmt} className="space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {/* Batting Card */}
-                                    <Card>
-                                        <CardHeader className="pb-3">
-                                            <CardTitle className="flex items-center gap-2 text-base">
-                                                <Star className="h-4 w-4 text-cricket-amber" /> Batting Statistics
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                {[
-                                                    { label: "Matches", value: s.matches },
-                                                    { label: "Innings", value: s.innings },
-                                                    { label: "Runs", value: s.runs.toLocaleString() },
-                                                    { label: "Average", value: s.average.toFixed(2) },
-                                                    { label: "Strike Rate", value: s.strikeRate.toFixed(2) },
-                                                    { label: "Highest", value: s.highestScore },
-                                                    { label: "100s", value: s.hundreds },
-                                                    { label: "50s", value: s.fifties },
-                                                    { label: "Balls Faced", value: s.ballsFaced.toLocaleString() },
-                                                    { label: "Catches", value: s.catches },
-                                                ].map(({ label, value }) => (
-                                                    <div key={label} className="flex justify-between items-center py-1.5 border-b border-border/50">
-                                                        <span className="text-sm text-muted-foreground">{label}</span>
-                                                        <span className="text-sm font-bold tabular-nums">{value}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-
-                                    {/* Bowling Card */}
-                                    <Card>
-                                        <CardHeader className="pb-3">
-                                            <CardTitle className="flex items-center gap-2 text-base">
-                                                <Target className="h-4 w-4 text-cricket-lime" /> Bowling Statistics
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                {[
-                                                    { label: "Wickets", value: s.wickets },
-                                                    { label: "Bowling Average", value: s.bowlingAverage > 0 ? s.bowlingAverage.toFixed(2) : "-" },
-                                                    { label: "Economy", value: s.economyRate > 0 ? s.economyRate.toFixed(2) : "-" },
-                                                    { label: "Best Bowling", value: s.bestBowling },
-                                                    { label: "Balls Bowled", value: s.ballsBowled.toLocaleString() },
-                                                    { label: "Runs Conceded", value: s.runsConceded.toLocaleString() },
-                                                    { label: "Stumpings", value: s.stumpings },
-                                                ].map(({ label, value }) => (
-                                                    <div key={label} className="flex justify-between items-center py-1.5 border-b border-border/50">
-                                                        <span className="text-sm text-muted-foreground">{label}</span>
-                                                        <span className="text-sm font-bold tabular-nums">{value}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </div>
-
-                                {/* Performance Highlights */}
-                                <Card>
-                                    <CardHeader className="pb-3">
-                                        <CardTitle className="flex items-center gap-2 text-base">
-                                            <Zap className="h-4 w-4 text-cricket-amber" /> Key Highlights
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                            {[
-                                                { label: "Batting Impact", value: s.runs > 5000 ? "Elite" : s.runs > 2000 ? "High" : "Developing", color: s.runs > 5000 ? "text-cricket-amber" : "text-muted-foreground" },
-                                                { label: "Consistency", value: s.average > 50 ? "Exceptional" : s.average > 35 ? "Good" : "Moderate", color: s.average > 50 ? "text-cricket-lime" : "text-muted-foreground" },
-                                                { label: "Century Rate", value: s.innings > 0 ? `${((s.hundreds / s.innings) * 100).toFixed(1)}%` : "0%", color: "text-foreground" },
-                                                { label: "Bowling Threat", value: s.wickets > 100 ? "Lethal" : s.wickets > 30 ? "Handy" : "Part-time", color: s.wickets > 100 ? "text-live" : "text-muted-foreground" },
-                                            ].map(({ label, value, color }) => (
-                                                <div key={label} className="text-center p-4 rounded-xl bg-muted/50">
-                                                    <p className={`text-lg font-bold ${color}`}>{value}</p>
-                                                    <p className="text-xs text-muted-foreground mt-1">{label}</p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </TabsContent>
-                        );
-                    })}
-                </Tabs>
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardContent className="p-6 sm:p-8">
+          <div className="flex flex-col sm:flex-row items-start gap-6">
+            {player.playerImg ? (
+              <img src={player.playerImg} alt={player.name} className="h-24 w-24 rounded-2xl object-cover shrink-0" />
             ) : (
-                <Card className="p-12 text-center">
-                    <p className="text-muted-foreground">Detailed statistics not available for this player</p>
-                </Card>
+              <div className="h-24 w-24 rounded-2xl bg-foreground/10 flex items-center justify-center text-3xl font-bold shrink-0">
+                {player.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+              </div>
             )}
+            <div className="flex-1">
+              <h1 className="text-2xl sm:text-3xl font-bold">{player.name}</h1>
+              <p className="text-lg text-muted-foreground">{player.country}</p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                {player.role && <Badge variant="default">{player.role}</Badge>}
+                {player.battingStyle && <Badge variant="outline">{player.battingStyle}</Badge>}
+                {player.bowlingStyle && <Badge variant="outline">{player.bowlingStyle}</Badge>}
+              </div>
+              {player.dateOfBirth && (
+                <p className="text-sm text-muted-foreground mt-3">
+                  Born: {new Date(player.dateOfBirth).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                </p>
+              )}
+              {player.placeOfBirth && (
+                <p className="text-sm text-muted-foreground">{player.placeOfBirth}</p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-            {/* AI Insight */}
-            <Card className="bg-gradient-to-r from-cricket-amber/5 to-cricket-green/5 border-cricket-amber/20">
-                <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4 text-cricket-amber" /> AI Player Insight
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-sm leading-relaxed">
-                        {player.role === "BATSMAN" || player.role === "WICKET_KEEPER"
-                            ? `${player.name} is one of the premier batsmen in world cricket. Known for ${player.battingStyle === "Right-hand bat" ? "elegant right-handed stroke play" : "explosive left-handed batting"}, ${player.shortName} has been a consistent performer across formats. Their ability to anchor innings while maintaining scoring rate makes them invaluable in high-pressure situations.`
-                            : player.role === "BOWLER"
-                                ? `${player.name} is a world-class bowler who has consistently troubled the best batsmen. Their ${player.bowlingStyle} has been a potent weapon, particularly in conditions that offer movement. The ability to bowl crucial overs in pressure situations sets them apart.`
-                                : `${player.name} is a genuine all-rounder who contributes significantly with both bat and ball. This dual capability provides tremendous balance to any team composition, making them one of the most valuable players in international cricket.`
-                        }
-                    </p>
-                </CardContent>
-            </Card>
-        </div>
-    );
+      {formats.length > 0 ? (
+        <Tabs defaultValue={formats[0].fn} className="space-y-4">
+          <TabsList>
+            {formats.map((f: PlayerStatsByType) => (
+              <TabsTrigger key={f.fn} value={f.fn} className="uppercase">{f.fn}</TabsTrigger>
+            ))}
+          </TabsList>
+          {formats.map((f: PlayerStatsByType) => (
+            <TabsContent key={f.fn} value={f.fn}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Batting</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+                      {[
+                        ["Matches", f.stat.m],
+                        ["Innings", f.stat.inn],
+                        ["Runs", f.stat.runs],
+                        ["Average", f.stat.avg],
+                        ["Strike Rate", f.stat.sr],
+                        ["Highest", f.stat.hs],
+                        ["100s", f.stat["100s"]],
+                        ["50s", f.stat["50s"]],
+                        ["4s", f.stat["4s"]],
+                        ["6s", f.stat["6s"]],
+                        ["Catches", f.stat.ct],
+                      ].filter(([, v]) => v !== undefined).map(([label, value]) => (
+                        <div key={label as string} className="flex justify-between py-1.5 border-b border-border/50">
+                          <span className="text-sm text-muted-foreground">{label}</span>
+                          <span className="text-sm font-bold tabular-nums">{value ?? "-"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Bowling</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+                      {[
+                        ["Wickets", f.stat.wkts],
+                        ["Economy", f.stat.econ],
+                        ["Best Innings", f.stat.bbi],
+                        ["Best Match", f.stat.bbm],
+                        ["5w Hauls", f.stat["5w"]],
+                        ["10w Hauls", f.stat["10w"]],
+                        ["Stumpings", f.stat.st],
+                      ].filter(([, v]) => v !== undefined).map(([label, value]) => (
+                        <div key={label as string} className="flex justify-between py-1.5 border-b border-border/50">
+                          <span className="text-sm text-muted-foreground">{label}</span>
+                          <span className="text-sm font-bold tabular-nums">{value ?? "-"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          ))}
+        </Tabs>
+      ) : (
+        <Card className="p-12 text-center">
+          <p className="text-muted-foreground">Detailed statistics not available for this player</p>
+        </Card>
+      )}
+    </div>
+  )
+}
+
+function PlayerSkeleton() {
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardContent className="p-8">
+          <div className="flex items-start gap-6">
+            <Skeleton className="h-24 w-24 rounded-2xl" />
+            <div className="flex-1 space-y-3">
+              <Skeleton className="h-8 w-48" />
+              <Skeleton className="h-5 w-24" />
+              <div className="flex gap-2"><Skeleton className="h-6 w-20" /><Skeleton className="h-6 w-28" /></div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card><CardContent className="p-6"><Skeleton className="h-48 w-full" /></CardContent></Card>
+        <Card><CardContent className="p-6"><Skeleton className="h-48 w-full" /></CardContent></Card>
+      </div>
+    </div>
+  )
+}
+
+export default async function PlayerDetailPage(props: {
+  params: Promise<{ playerId: string }>
+}) {
+  const { playerId } = await props.params
+
+  return (
+    <div className="space-y-6">
+      <Link href="/players" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        Back to Players
+      </Link>
+      <Suspense fallback={<PlayerSkeleton />}>
+        <PlayerDetail playerId={playerId} />
+      </Suspense>
+    </div>
+  )
 }

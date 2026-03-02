@@ -1,62 +1,79 @@
-"use client";
+﻿export const dynamic = "force-dynamic"
 
-import Link from "next/link";
-import { motion } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Flag, Users, ChevronRight } from "lucide-react";
-import { teams, getPlayersByTeamId } from "@/lib/data";
+import { Suspense } from "react"
+import Link from "next/link"
+import { Card, CardContent } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Cricket } from "@/lib/cached-cricket"
+import { EmptyState } from "@/components/common/EmptyState"
+import type { CricketMatch } from "@/types/cricket"
+
+async function TeamsFromMatches() {
+  const res = await Cricket.getLiveMatches()
+  const matches: CricketMatch[] = res?.data ?? []
+
+  const teamMap = new Map<string, { name: string; shortname: string; img: string }>()
+  for (const match of matches) {
+    if (match.teamInfo) {
+      for (const t of match.teamInfo) {
+        if (!teamMap.has(t.shortname)) {
+          teamMap.set(t.shortname, t)
+        }
+      }
+    }
+  }
+
+  const teams = Array.from(teamMap.values())
+
+  if (teams.length === 0) {
+    return <EmptyState icon="cricket" title="No teams available" description="Team data is populated from live and recent matches." />
+  }
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {teams.map((team) => (
+        <Card key={team.shortname} className="hover:border-foreground/20 transition-all cursor-pointer group">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              {team.img ? (
+                <img src={team.img} alt={team.name} className="h-12 w-12 rounded-xl object-contain shrink-0" />
+              ) : (
+                <div className="h-12 w-12 rounded-xl bg-foreground/10 flex items-center justify-center text-sm font-bold shrink-0">
+                  {team.shortname}
+                </div>
+              )}
+              <div>
+                <h3 className="font-semibold group-hover:underline">{team.name}</h3>
+                <p className="text-sm text-muted-foreground">{team.shortname}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+function TeamsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <Card key={i}><CardContent className="p-6"><div className="flex items-center gap-4"><Skeleton className="h-12 w-12 rounded-xl" /><div className="space-y-2"><Skeleton className="h-4 w-24" /><Skeleton className="h-3 w-12" /></div></div></CardContent></Card>
+      ))}
+    </div>
+  )
+}
 
 export default function TeamsPage() {
-    return (
-        <div className="p-6 space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-                    <Flag className="h-6 w-6 text-cricket-amber" /> Teams
-                </h1>
-                <p className="text-muted-foreground">International cricket teams</p>
-            </div>
-
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-            >
-                {teams.map((team) => {
-                    const squad = getPlayersByTeamId(team.id);
-                    return (
-                        <Link key={team.id} href={`/teams/${team.id}`}>
-                            <Card className="hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer group overflow-hidden h-full">
-                                <div className="h-1.5" style={{ background: `linear-gradient(90deg, ${team.color}, ${team.color}88)` }} />
-                                <CardContent className="p-6">
-                                    <div className="flex items-center gap-4">
-                                        <div
-                                            className="h-16 w-16 rounded-xl flex items-center justify-center text-lg font-bold shrink-0 group-hover:scale-105 transition-transform"
-                                            style={{ backgroundColor: team.color + "20", color: team.color }}
-                                        >
-                                            {team.shortName}
-                                        </div>
-                                        <div className="flex-1">
-                                            <h3 className="text-lg font-bold group-hover:text-primary transition-colors">{team.name}</h3>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                {team.ranking && (
-                                                    <Badge variant="outline" className="text-[10px]">
-                                                        ICC Rank #{team.ranking}
-                                                    </Badge>
-                                                )}
-                                                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                                    <Users className="h-3 w-3" /> {squad.length} players
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
-                    );
-                })}
-            </motion.div>
-        </div>
-    );
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Teams</h1>
+        <p className="text-muted-foreground">Teams from current and recent matches</p>
+      </div>
+      <Suspense fallback={<TeamsSkeleton />}>
+        <TeamsFromMatches />
+      </Suspense>
+    </div>
+  )
 }

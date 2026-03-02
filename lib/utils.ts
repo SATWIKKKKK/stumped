@@ -48,16 +48,16 @@ export function getMatchStatusColor(status: string): string {
         case "COMPLETED":
             return "text-muted-foreground";
         case "UPCOMING":
-            return "text-cricket-lime";
+            return "text-foreground";
         default:
             return "text-muted-foreground";
     }
 }
 
 export function getResultColor(result: string): string {
-    if (result.includes("won")) return "text-win";
-    if (result.includes("lost")) return "text-loss";
-    return "text-draw";
+    if (result.includes("won")) return "text-foreground";
+    if (result.includes("lost")) return "text-muted-foreground";
+    return "text-muted-foreground";
 }
 
 export function truncate(str: string, maxLength: number): string {

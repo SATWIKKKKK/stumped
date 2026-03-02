@@ -1,163 +1,131 @@
-"use client";
+﻿export const dynamic = "force-dynamic"
 
-import Link from "next/link";
-import { motion } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Radio, Calendar, Trophy, Clock, MapPin } from "lucide-react";
-import { getLiveMatches, getUpcomingMatches, getCompletedMatches, matches } from "@/lib/data";
-
-function MatchCard({ match }: { match: typeof matches[0] }) {
-    const lastInnings = match.innings[match.innings.length - 1];
-
-    return (
-        <Link href={`/matches/${match.id}`}>
-            <Card className="hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer group overflow-hidden">
-                {match.status === "LIVE" && (
-                    <div className="h-1 bg-gradient-to-r from-live via-cricket-amber to-cricket-lime" />
-                )}
-                <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                        <p className="text-xs text-muted-foreground">{match.seriesName}</p>
-                        <Badge variant={match.status === "LIVE" ? "live" : match.status === "COMPLETED" ? "secondary" : "format"}>
-                            {match.status}
-                        </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <MapPin className="h-3 w-3" /> {match.venue}, {match.city}
-                    </p>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center font-bold text-primary group-hover:scale-105 transition-transform">
-                                {match.team1.shortName}
-                            </div>
-                            <div>
-                                <p className="font-semibold">{match.team1.name}</p>
-                                {match.innings.length > 0 && (
-                                    <p className="text-lg font-bold tabular-nums">
-                                        {match.innings[0].runs}/{match.innings[0].wickets}
-                                        <span className="text-xs text-muted-foreground ml-1">
-                                            ({match.innings[0].overs}.{match.innings[0].balls} ov)
-                                        </span>
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-                        <div className="text-center px-4">
-                            <Badge variant="format" className="text-[10px]">{match.format}</Badge>
-                            <p className="text-xs text-muted-foreground mt-1">{match.matchNumber}</p>
-                        </div>
-                        <div className="text-right flex items-center gap-3 flex-row-reverse">
-                            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-secondary/80 to-secondary/40 flex items-center justify-center font-bold text-foreground group-hover:scale-105 transition-transform">
-                                {match.team2.shortName}
-                            </div>
-                            <div>
-                                <p className="font-semibold">{match.team2.name}</p>
-                                {match.innings.length > 1 && (
-                                    <p className="text-lg font-bold tabular-nums">
-                                        {match.innings[1].runs}/{match.innings[1].wickets}
-                                        <span className="text-xs text-muted-foreground ml-1">
-                                            ({match.innings[1].overs}.{match.innings[1].balls} ov)
-                                        </span>
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                    {match.result && (
-                        <p className="text-sm text-win font-medium text-center">{match.result}</p>
-                    )}
-                    {match.status === "UPCOMING" && (
-                        <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            {new Date(match.startDate).toLocaleString("en-US", {
-                                weekday: "short", month: "short", day: "numeric",
-                                hour: "2-digit", minute: "2-digit",
-                            })}
-                        </div>
-                    )}
-                    {match.toss && (
-                        <p className="text-xs text-muted-foreground text-center">
-                            Toss: {match.toss.winner} elected to {match.toss.decision}
-                        </p>
-                    )}
-                </CardContent>
-            </Card>
-        </Link>
-    );
-}
+import { Suspense } from "react"
+import Link from "next/link"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Cricket } from "@/lib/cached-cricket"
+import { LiveDot } from "@/components/common/LiveDot"
+import { EmptyState } from "@/components/common/EmptyState"
+import type { CricketMatch } from "@/types/cricket"
 
 export default function MatchesPage() {
-    const liveMatches = getLiveMatches();
-    const upcomingMatches = getUpcomingMatches();
-    const completedMatches = getCompletedMatches();
+  return (
+    <div className="space-y-6">
+      <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Matches</h1>
+      <Tabs defaultValue="current" className="w-full">
+        <TabsList>
+          <TabsTrigger value="current">Current</TabsTrigger>
+          <TabsTrigger value="all">All Matches</TabsTrigger>
+        </TabsList>
+        <TabsContent value="current" className="mt-4">
+          <Suspense fallback={<MatchListSkeleton />}>
+            <MatchList />
+          </Suspense>
+        </TabsContent>
+        <TabsContent value="all" className="mt-4">
+          <Suspense fallback={<MatchListSkeleton />}>
+            <MatchList />
+          </Suspense>
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}
 
+async function MatchList() {
+  let matches: CricketMatch[] = []
+  try {
+    const data = await Cricket.getLiveMatches()
+    matches = data?.data ?? []
+  } catch {
+    // Fall through to empty state
+  }
+
+  if (!matches.length) {
     return (
-        <div className="p-6 space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight">Matches</h1>
-                <p className="text-muted-foreground">Live scores, upcoming fixtures, and recent results</p>
+      <EmptyState
+        title="No matches available"
+        description="Check back soon for live cricket action."
+        icon="cricket"
+      />
+    )
+  }
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+      {matches.map((match) => (
+        <MatchCard key={match.id} match={match} />
+      ))}
+    </div>
+  )
+}
+
+function MatchCard({ match }: { match: CricketMatch }) {
+  const isLive = match.matchStarted && !match.matchEnded
+
+  return (
+    <Link href={"/matches/" + match.id}>
+      <Card className="hover:bg-accent/50 transition-all duration-200 cursor-pointer h-full">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground truncate">
+              {match.name}
+            </CardTitle>
+            {isLive && (
+              <div className="flex items-center gap-1.5 shrink-0">
+                <LiveDot />
+                <Badge variant="live" className="text-[10px]">LIVE</Badge>
+              </div>
+            )}
+            {match.matchEnded && (
+              <Badge variant="secondary" className="text-[10px] shrink-0">DONE</Badge>
+            )}
+            {!match.matchStarted && (
+              <Badge variant="outline" className="text-[10px] shrink-0">UPCOMING</Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {match.score?.map((s, idx) => (
+            <div key={idx} className="flex items-center justify-between">
+              <span className="text-sm font-medium truncate max-w-[55%]">{s.inning}</span>
+              <span className="text-lg font-bold tabular-nums">
+                {s.r}/{s.w}
+                <span className="text-xs text-muted-foreground ml-1">({s.o} ov)</span>
+              </span>
             </div>
+          ))}
+          {(!match.score || match.score.length === 0) && (
+            <p className="text-sm text-muted-foreground">
+              {match.matchStarted ? "In progress" : "Yet to start"}
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground pt-1 truncate">{match.status}</p>
+          <p className="text-xs text-muted-foreground truncate">{match.venue}</p>
+        </CardContent>
+      </Card>
+    </Link>
+  )
+}
 
-            <Tabs defaultValue="live" className="space-y-4">
-                <TabsList className="grid w-full max-w-md grid-cols-3">
-                    <TabsTrigger value="live" className="gap-1.5">
-                        <Radio className="h-3.5 w-3.5" /> Live ({liveMatches.length})
-                    </TabsTrigger>
-                    <TabsTrigger value="upcoming" className="gap-1.5">
-                        <Calendar className="h-3.5 w-3.5" /> Upcoming ({upcomingMatches.length})
-                    </TabsTrigger>
-                    <TabsTrigger value="completed" className="gap-1.5">
-                        <Trophy className="h-3.5 w-3.5" /> Recent ({completedMatches.length})
-                    </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="live" className="space-y-4">
-                    {liveMatches.length === 0 ? (
-                        <Card className="p-12 text-center">
-                            <p className="text-muted-foreground">No live matches at the moment</p>
-                        </Card>
-                    ) : (
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="grid grid-cols-1 lg:grid-cols-2 gap-4"
-                        >
-                            {liveMatches.map((match) => (
-                                <MatchCard key={match.id} match={match} />
-                            ))}
-                        </motion.div>
-                    )}
-                </TabsContent>
-
-                <TabsContent value="upcoming" className="space-y-4">
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="grid grid-cols-1 lg:grid-cols-2 gap-4"
-                    >
-                        {upcomingMatches.map((match) => (
-                            <MatchCard key={match.id} match={match} />
-                        ))}
-                    </motion.div>
-                </TabsContent>
-
-                <TabsContent value="completed" className="space-y-4">
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="grid grid-cols-1 lg:grid-cols-2 gap-4"
-                    >
-                        {completedMatches.map((match) => (
-                            <MatchCard key={match.id} match={match} />
-                        ))}
-                    </motion.div>
-                </TabsContent>
-            </Tabs>
-        </div>
-    );
+function MatchListSkeleton() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <Card key={i}>
+          <CardHeader className="pb-3">
+            <Skeleton className="h-4 w-3/4" />
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Skeleton className="h-6 w-2/3" />
+            <Skeleton className="h-6 w-2/3" />
+            <Skeleton className="h-3 w-1/2" />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
 }
