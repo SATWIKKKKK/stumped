@@ -1,7 +1,6 @@
 ﻿export const dynamic = "force-dynamic"
 
 import { Suspense } from "react"
-import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Cricket } from "@/lib/cached-cricket"

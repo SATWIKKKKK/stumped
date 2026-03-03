@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Bell, User, Command } from "lucide-react";
+import { Search, Bell, User, Command, LogOut } from "lucide-react";
+import { useSession, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
@@ -9,8 +10,12 @@ import {
     Dialog, DialogContent, DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+    Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export function TopNav() {
+    const { data: session } = useSession();
     const [commandOpen, setCommandOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -52,12 +57,36 @@ export function TopNav() {
                     <Bell className="h-4 w-4" />
                 </Button>
 
-                {/* User Avatar */}
-                <Avatar className="h-8 w-8 cursor-pointer">
-                    <AvatarFallback className="bg-muted text-muted-foreground text-xs">
-                        <User className="h-4 w-4" />
-                    </AvatarFallback>
-                </Avatar>
+                {/* User Avatar & Sign Out */}
+                <TooltipProvider delayDuration={0}>
+                    <div className="flex items-center gap-2">
+                        <Avatar className="h-8 w-8">
+                            <AvatarFallback className="bg-muted text-muted-foreground text-xs font-medium">
+                                {session?.user?.name
+                                    ? session.user.name.charAt(0).toUpperCase()
+                                    : <User className="h-4 w-4" />}
+                            </AvatarFallback>
+                        </Avatar>
+                        {session?.user?.name && (
+                            <span className="text-sm font-medium hidden md:inline">
+                                {session.user.name}
+                            </span>
+                        )}
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => signOut({ callbackUrl: "/login" })}
+                                >
+                                    <LogOut className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Sign out</TooltipContent>
+                        </Tooltip>
+                    </div>
+                </TooltipProvider>
             </header>
 
             {/* Command Palette / Search Dialog */}

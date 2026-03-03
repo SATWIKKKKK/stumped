@@ -4,7 +4,7 @@ import { EmptyState } from "@/components/common/EmptyState"
 export default async function TeamDetailPage(props: {
   params: Promise<{ teamId: string }>
 }) {
-  const { teamId } = await props.params
+  const _params = await props.params
 
   return (
     <div className="space-y-6">
